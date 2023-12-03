@@ -1,24 +1,45 @@
-# 6696202375:AAEacBpBfUG3t2mvfD8q8gAF807DNxI-J5w
 import telebot
 from telebot import types
-import psutil
 import subprocess
+import os
 
 TOKEN = '6696202375:AAEacBpBfUG3t2mvfD8q8gAF807DNxI-J5w'
 bot = telebot.TeleBot(TOKEN)
 
-# Словарь для хранения состояний пользователя
 user_state = {}
 
-# Обработчик команды /start
+lessons = {
+    '1': {
+        'title': 'Introduction to Python',
+        'images': ['lesson_1_ter_kar_1.jpg', 'lesson_1_ter_kar_2.jpg'],
+        'task': 'lesson_1_task.jpg',
+        'answer': 'lesson_1_answer.jpg'
+    },
+    '2': {
+        'title': 'Working with Lists in Python',
+        'images': ['lesson_1_ter_kar_3.jpg', 'lesson_1_ter_kar_4.jpg'],
+        'task': 'lesson_1_task.jpg',
+        'answer': 'lesson_2_answer.jpg'
+    },
+    '3': {
+        'title': 'след хуйня',
+        'images': ['lesson_1_ter_kar_3.jpg', 'lesson_1_ter_kar_4.jpg'],
+        'task': 'lesson_1_task.jpg',
+        'answer': 'lesson_2_answer.jpg',
+        'code': 'hallo word', #####################################################################
+    },
+    # Add more lessons as needed
+}
+
 @bot.message_handler(commands=['start'])
 def handle_start(message):
-    user_state[message.chat.id] = 'start'
+    # Set the initial state to the first lesson (assuming 1 is the starting lesson number)
+    user_state[message.chat.id] = 1
+
     user_markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     user_markup.row('Начало', 'ТП', 'Как', 'Я')
     bot.send_message(message.from_user.id, "Привет! Я бот для изучения языков программирования. Выбери раздел:", reply_markup=user_markup)
 
-# Обработчик для кнопок "Начало", "ТП", "Как", "Я"
 @bot.message_handler(func=lambda message: True)
 def handle_buttons(message):
     if message.text == 'Начало':
@@ -32,7 +53,6 @@ def handle_buttons(message):
     else:
         bot.send_message(message.chat.id, "Пожалуйста, используйте кнопки на клавиатуре.")
 
-
 def show_instructions(message):
     user_state[message.chat.id] = 'show_instructions'
     instructions_text = "Для использования бота, следуйте этим шагам:\n\n1. Выберите раздел 'Начало', 'ТП', 'Как', 'Я'.\n2. Следуйте инструкциям, выбирая язык программирования и действия.\n3. Введите свой код, используя кнопку 'Ввести код'.\n4. После ввода кода, выберите 'Показать ответ' для проверки.\n5. Выберите 'Далее' для перехода к следующему уроку.\n6. В любой момент можно вернуться назад, используя кнопку 'Назад'."
@@ -42,8 +62,6 @@ def show_instructions(message):
     bot.send_message(message.chat.id, "Выбери действие:", reply_markup=markup)
     bot.register_next_step_handler(message, handle_back)
 
-
-# Функция для выбора языка программирования
 def choose_language(message):
     user_state[message.chat.id] = 'choose_language'
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
@@ -51,7 +69,6 @@ def choose_language(message):
     bot.send_message(message.chat.id, "Выбери язык программирования:", reply_markup=markup)
     bot.register_next_step_handler(message, choose_option)
 
-# Функция для выбора опции после выбора языка
 def choose_option(message):
     if message.text == 'Python' or message.text == 'C++':
         user_state[message.chat.id] = 'choose_option'
@@ -64,15 +81,11 @@ def choose_option(message):
     else:
         bot.send_message(message.chat.id, "Пожалуйста, используйте кнопки на клавиатуре.")
 
-# Обработчик для кнопок "Начать" и "Выбор урока"
 def handle_option(message):
     if message.text == 'Начать':
         user_state[message.chat.id] = 'handle_option'
-        bot.send_photo(message.chat.id, open('your_image.jpg', 'rb'))
-        markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-        markup.row('Ввести код', 'Дальше', 'Назад')
-        bot.send_message(message.chat.id, "Выбери действие:", reply_markup=markup)
-        bot.register_next_step_handler(message, handle_action)
+        lesson_number = '1'
+        show_lesson(message, lesson_number)
     elif message.text == 'Выбор урока':
         show_lessons(message)
     elif message.text == 'Назад':
@@ -80,49 +93,149 @@ def handle_option(message):
     else:
         bot.send_message(message.chat.id, "Пожалуйста, используйте кнопки на клавиатуре.")
 
-# Обработчик для кнопок "Показать ответ" и "Дальше"
+def show_lessons(message):
+    user_state[message.chat.id] = 'show_lessons'
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+
+    for lesson_number, lesson_info in lessons.items():
+        markup.row(f'Урок {lesson_number}: {lesson_info["title"]}')
+
+    markup.row('Назад')
+    bot.send_message(message.chat.id, "Выбери урок:", reply_markup=markup)
+    bot.register_next_step_handler(message, handle_lesson)
+
+def handle_lesson(message):
+    lesson_number = message.text.split(' ')[-1]
+    if lesson_number in lessons:
+        show_lesson(message, lesson_number)
+    elif message.text == 'Назад':
+        handle_back(message)
+    else:
+        bot.send_message(message.chat.id, "Пожалуйста, используйте кнопки на клавиатуре.")
+
+def show_lesson(message, lesson_number):
+    user_state[(message.chat.id, 'lesson_number')] = lesson_number ##############################################################
+    lesson_info = lessons[lesson_number]
+
+    bot.send_message(message.chat.id, f"Урок {lesson_number}: {lesson_info['title']}")###############################################
+
+    for image_path in lesson_info['images']:
+        if os.path.exists(image_path):
+            image = open(image_path, 'rb')
+            bot.send_photo(message.chat.id, image)
+        else:
+            bot.send_message(message.chat.id, f"Image file not found: {image_path}")
+
+    task_image = open(lesson_info['task'], 'rb')
+    bot.send_photo(message.chat.id, task_image)
+
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    markup.row('Ввести код', 'Далее', 'Назад')
+    bot.send_message(message.chat.id, "Выбери действие:", reply_markup=markup)
+    bot.register_next_step_handler(message, handle_action)
+
 def handle_action(message):
     if message.text == 'Ввести код':
         user_state[message.chat.id] = 'handle_action'
         bot.send_message(message.chat.id, "Пожалуйста, введите свой код:")
         bot.register_next_step_handler(message, handle_user_code)
-    elif message.text == 'Дальше':
+    elif message.text == 'Далее':
         bot.send_message(message.chat.id, "Переход к следующему уроку.")
-        # Добавьте ваш код для перехода к следующему уроку
+        handle_next_lesson(message)
     elif message.text == 'Назад':
         handle_back(message)
     else:
         bot.send_message(message.chat.id, "Пожалуйста, используйте кнопки на клавиатуре.")
 
-# Функция для показа уроков
-def show_lessons(message):
-    user_state[message.chat.id] = 'show_lessons'
+def handle_next_lesson(message):
+    try:
+        # Получаем текущий номер урока из user_state
+        current_lesson_number = int(user_state.get((message.chat.id, 'lesson_number'), 1)) 
+
+        # Увеличиваем номер урока
+        next_lesson_number = current_lesson_number + 1
+
+        # Проверяем, существует ли информация о следующем уроке
+        if str(next_lesson_number) in lessons:
+            # Обновляем user_state
+            user_state[(message.chat.id, 'lesson_number')] = next_lesson_number
+
+            # Отображаем следующий урок
+            show_lesson(message, str(next_lesson_number))
+        else:
+            bot.send_message(message.chat.id, "Урок не найден.")
+            handle_back(message)
+
+    except ValueError:
+        bot.send_message(message.chat.id, "Error: Lesson number is not a valid integer.")
+        handle_back(message)
+
+
+
+def handle_user_code(message):
+   
+    user_code = message.text
+
+    try:
+        # Установка ограничения времени выполнения и объема памяти
+        process = subprocess.run(['python', '-c', user_code], capture_output=True, text=True, timeout=5)
+        if process.returncode != 0:
+            raise Exception(f"Произошла ошибка при выполнении кода. Код завершился с кодом возврата {process.returncode}.")
+
+        # Проверка результата выполнения кода
+        expected_output = "Hello, World!"##############################################################
+        if expected_output in process.stdout:
+            bot.send_message(message.chat.id, "Код выполнен верно!")
+            show_answer(message)
+        else:
+            bot.send_message(message.chat.id, "Код выполнен, но результат не соответствует ожидаемому.")
+            show_buttons(message)
+    except subprocess.TimeoutExpired:
+        bot.send_message(message.chat.id, "Превышено ограничение времени выполнения кода.")
+        show_buttons(message)
+    except Exception as e:
+        # Если произошла ошибка при выполнении кода, сообщаем об этом пользователю
+        bot.send_message(message.chat.id, f"Произошла ошибка при выполнении кода:\n{str(e)}")
+        show_buttons(message)
+
+def show_buttons(message):
+    user_state[message.chat.id] = 'show_buttons'
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    # Добавьте кнопки для каждого урока
-    markup.row('Урок 1', 'Урок 2', 'Урок 3', 'Назад')
-    bot.send_message(message.chat.id, "Выбери урок:", reply_markup=markup)
+    markup.row('Показать ответ', 'Назад')
+    bot.send_message(message.chat.id, "Выбери действие:", reply_markup=markup)
+    bot.register_next_step_handler(message, handle_buttons_after_code)
 
-# Обработчик для выбора урока
-@bot.message_handler(func=lambda message: True)
-def handle_lesson(message):
-    if message.text.startswith('Урок'):
-        bot.send_message(message.chat.id, f"Вы выбрали урок {message.text}.")
-        # Добавьте ваш код для работы с выбранным уроком
+def handle_buttons_after_code(message):
+    if message.text == 'Показать ответ':
+        show_answer(message)
     elif message.text == 'Назад':
         handle_back(message)
     else:
         bot.send_message(message.chat.id, "Пожалуйста, используйте кнопки на клавиатуре.")
 
-# Обработчик для кнопки "Дальше" после показа ответа
-def handle_next(message):
-    bot.send_message(message.chat.id, "Переход к следующему уроку.")
-    # Добавьте ваш код для перехода к следующему уроку
+def show_answer(message):
+    user_state[message.chat.id] = 'show_answer'
+    
+    # Replace this with your logic to show the answer (e.g., sending an image)
+    bot.send_photo(message.chat.id, open('lesson_1_otv.jpg', 'rb'))
 
-# Обработчик для кнопки "Назад"
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    markup.row('Далее', 'Назад')
+    bot.send_message(message.chat.id, "Выбери действие:", reply_markup=markup)
+    bot.register_next_step_handler(message, handle_buttons_after_answer)
+
+def handle_buttons_after_answer(message):
+    if message.text == 'Далее':
+        bot.send_message(message.chat.id, "Переход к следующему уроку.")
+        handle_next_lesson(message)
+    elif message.text == 'Назад':
+        handle_back(message)
+    else:
+        bot.send_message(message.chat.id, "Пожалуйста, используйте кнопки на клавиатуре.")
+
 def handle_back(message):
     if message.chat.id in user_state:
         current_state = user_state[message.chat.id]
-        # Remove the current state from user_state to avoid recursive loop
         user_state.pop(message.chat.id, None)
 
         if current_state == 'choose_language':
@@ -144,69 +257,5 @@ def handle_back(message):
     else:
         handle_start(message)
 
-# Обработчик для ввода кода пользователем
-def handle_user_code(message):
-   
-    user_code = message.text
-
-    try:
-        # Установка ограничения времени выполнения и объема памяти
-        process = subprocess.run(['python', '-c', user_code], capture_output=True, text=True, timeout=5)
-        if process.returncode != 0:
-            raise Exception(f"Произошла ошибка при выполнении кода. Код завершился с кодом возврата {process.returncode}.")
-
-        # Проверка результата выполнения кода
-        expected_output = "Hello, World!"
-        if expected_output in process.stdout:
-            bot.send_message(message.chat.id, "Код выполнен верно!")
-            show_answer(message)
-        else:
-            bot.send_message(message.chat.id, "Код выполнен, но результат не соответствует ожидаемому.")
-            show_buttons(message)
-    except subprocess.TimeoutExpired:
-        bot.send_message(message.chat.id, "Превышено ограничение времени выполнения кода.")
-        show_buttons(message)
-    except Exception as e:
-        # Если произошла ошибка при выполнении кода, сообщаем об этом пользователю
-        bot.send_message(message.chat.id, f"Произошла ошибка при выполнении кода:\n{str(e)}")
-        show_buttons(message)
-
-# Функция для показа кнопок "Показать ответ" и "Назад"
-def show_buttons(message):
-    user_state[message.chat.id] = 'show_buttons'
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.row('Показать ответ', 'Назад')
-    bot.send_message(message.chat.id, "Выбери действие:", reply_markup=markup)
-    bot.register_next_step_handler(message, handle_buttons_after_code)
-
-# Обработчик для кнопок "Показать ответ" и "Назад" после ввода кода
-def handle_buttons_after_code(message):
-    if message.text == 'Показать ответ':
-        show_answer(message)
-    elif message.text == 'Назад':
-        handle_back(message)
-    else:
-        bot.send_message(message.chat.id, "Пожалуйста, используйте кнопки на клавиатуре.")
-
-# Функция для показа ответа (изображения)
-def show_answer(message):
-    user_state[message.chat.id] = 'show_answer'
-    bot.send_photo(message.chat.id, open('your_answer_image.jpg', 'rb'))
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.row('Далее', 'Назад')
-    bot.send_message(message.chat.id, "Выбери действие:", reply_markup=markup)
-    bot.register_next_step_handler(message, handle_buttons_after_answer)
-  
-# Обработчик для кнопок "Далее" и "Назад" после показа ответа
-def handle_buttons_after_answer(message):
-    if message.text == 'Далее':
-        bot.send_message(message.chat.id, "Переход к следующему уроку.")
-        # Добавьте ваш код для перехода к следующему уроку
-    elif message.text == 'Назад':
-        handle_back(message)
-    else:
-        bot.send_message(message.chat.id, "Пожалуйста, используйте кнопки на клавиатуре.")
-
 if __name__ == '__main__':
     bot.polling(none_stop=True)
-
