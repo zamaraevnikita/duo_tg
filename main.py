@@ -3,6 +3,11 @@ from telebot import types
 import subprocess
 import os
 import sqlite3
+import telebot
+
+PAYMENTS_TOKEN = "1744374395:TEST:c686f7af7ceeca26bd1a"
+
+PRICE = types.LabeledPrice(label="Подписка на 1 месяц", amount=500*100)
 
 TOKEN = '6696202375:AAEacBpBfUG3t2mvfD8q8gAF807DNxI-J5w'
 bot = telebot.TeleBot(TOKEN)
@@ -74,6 +79,9 @@ lessons_py = {
     # Add more lessons_py as needed
 }
 
+
+
+
 @bot.message_handler(commands=['start'])
 def handle_start(message):
     user_id = message.chat.id
@@ -85,7 +93,7 @@ def handle_start(message):
     cursor.execute('''
         INSERT OR IGNORE INTO users (user_id, username, premka)
         VALUES (?, ?, ?)
-    ''', (user_id, username, 1))  # По умолчанию начинаем с первого урока
+    ''', (user_id, username, 0))  # По умолчанию начинаем с первого урока
     conn.commit()
     conn.close()
 
@@ -101,12 +109,81 @@ def handle_buttons(message):
         choose_language(message)
     elif message.text == 'Как':
         show_instructions(message)
-    elif message.text == 'ТП' or message.text == 'Я':
+    elif message.text == 'ТП':
+        handle_buy(message)
+    elif message.text == 'Я':
         bot.send_message(message.chat.id, "Функционал этой кнопки еще не реализован.")
     elif message.text == 'Назад':
         handle_back(message)
     else:
         bot.send_message(message.chat.id, "Пожалуйста, используйте кнопки на клавиатуре.")
+
+
+def handle_buy(message):
+    try:
+        user_id = message.from_user.id
+
+        # Проверка на тестовый платеж
+        if bot.token.split(':')[1] == 'TEST':
+            bot.send_message(message.chat.id, "Тестовый платеж!!!")
+
+        # Идентификатор пользователя и номер инвойса в качестве payload
+        payload = f"{user_id}-{message.message_id}"
+
+        # Проверка, оплачивал ли пользователь уже подписку
+        conn = sqlite3.connect('users.db')
+        cursor = conn.cursor()
+        cursor.execute('SELECT premka FROM users WHERE user_id=?', (user_id,))
+        result = cursor.fetchone()
+
+        if result and result[0] == 1:
+            bot.send_message(message.chat.id, "Вы уже оплатили подписку.")
+            conn.close()
+            return
+
+        # Отправка инвойса пользователю
+        bot.send_invoice(message.chat.id,
+                         title="Подписка на бота",
+                         description="Активация подписки на бота на 1 месяц",
+                         provider_token=PAYMENTS_TOKEN,
+                         currency="rub",
+                         photo_url="https://www.aroged.com/wp-content/uploads/2022/06/Telegram-has-a-premium-subscription.jpg",
+                         photo_width=416,
+                         photo_height=234,
+                         photo_size=416,
+                         is_flexible=False,
+                         prices=[PRICE],
+                         start_parameter="one-month-subscription",
+                         invoice_payload=payload)
+    except Exception as e:
+        bot.send_message(message.chat.id, f"Произошла ошибка: {str(e)}")
+
+# Обработчик PreCheckoutQuery
+@bot.pre_checkout_query_handler(func=lambda query: True)
+def process_pre_checkout_query(query):
+    bot.answer_pre_checkout_query(query.id, ok=True)
+
+# Обработчик успешного платежа
+@bot.message_handler(content_types=['successful_payment'])
+def process_successful_payment(message):
+    try:
+        user_id = message.from_user.id
+
+        # Обработка успешного платежа
+        payment_info = message.successful_payment
+        amount = payment_info.total_amount // 100
+
+        # Обновление статуса оплаты в базе данных
+        conn = sqlite3.connect('users.db')
+        cursor = conn.cursor()
+        cursor.execute('UPDATE users SET premka=1 WHERE user_id=?', (user_id,))
+        conn.commit()
+        conn.close()
+
+        bot.send_message(message.chat.id, f"Платёж на сумму {amount} руб. прошел успешно!!!")
+    except Exception as e:
+        bot.send_message(message.chat.id, f"Произошла ошибка: {str(e)}")
+
 
 def show_instructions(message):
     user_state[message.chat.id] = 'show_instructions'
